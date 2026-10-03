@@ -1,0 +1,13 @@
+{
+  "name": "prd-to-prototype-web-demo",
+  "private": true,
+  "description": "Runnable proof of the PRD-to-prototype evidence workflow: Playwright adapter -> scenario-results.json -> check_coverage.py",
+  "scripts": {
+    "start": "PROTOTYPE_MODE=1 node server.js",
+    "test": "playwright test",
+    "check": "python3 ../../scripts/check_coverage.py --contract coverage-contract.json --results evidence/scenario-results.json --artifact-root ."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

@@ -1,113 +1,132 @@
 ---
 name: prd-to-prototype
-description: Turn a PRD for a new web, website, desktop, or mobile UI feature into an acceptance-tested prototype using the current application and a stateful mocked backend. Use for PRD-driven feature discovery and prototype review before backend implementation; not for backend-only work or production deployment.
+description: Turn a PRD for a web app or website feature into a clickable prototype of the existing app running on a stateful mock backend, with Playwright acceptance tests as evidence, before the backend is built. Use for PRD-driven feature discovery and product-owner review of web UI; not for backend-only work, native mobile or desktop apps, or production deployment.
 license: MIT
 metadata:
   author: salismt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
-# PRD to Prototype
+# PRD to Prototype (web)
 
-Make the intended feature concrete enough to review before building its backend:
+The prototype is a pinned copy of the real web app, extended with the proposed UI and run against a fake backend at its existing API seam. Each PRD acceptance case (AC) becomes a Playwright journey that starts at the normal entry point, fails before the feature exists, and passes after. The checker proves every AC has a real passing run with recorded screens and artifacts. A green fake suite is **ready for product review**, nothing more.
 
-**PRD acceptance examples → failing UI journeys → current UI + stateful fake → passing journeys and parity evidence → product-owner review → implementation handoff.**
+Scope: web apps and websites. Native mobile and desktop are not supported in this version.
 
-The prototype is the existing application running against a fake backend. Passing mocked tests demonstrates proposed behavior, not production readiness or actual external-service results.
+Resources: [PRD template](assets/prd-template.md), [web mock seams](references/web-mocks.md), [evidence contract](references/evidence.md), [Playwright adapter](adapters/playwright/README.md), [runnable example](examples/web-demo/). The example JSON under `assets/` is synthetic, not evidence of a run.
 
-## Scope and starting point
+Ask only for decisions that change the feature; keep working on everything else while waiting.
 
-Read the project's applicable instructions, PRD, and affected UI/API code. Identify the product owner, target platform, feature scope, existing design direction, normal user entry point, and review/build commands. Preserve the user's choices and authorization. Ask only for missing decisions that materially change the feature; continue independent work while an answer is pending.
+## 1. Locate and understand the live UI
 
-For a new application, use the current starter or selected design baseline. If neither exists, establish the shell and design direction explicitly; do not invent a previously shipped baseline. For changes to an existing feature, use its current code and runtime as evidence of present behavior, rather than an older PRD or prototype.
+Every codebase differs in stack, architecture and conventions. Find out how this one works before writing anything.
 
-Use these resources as needed:
+**Do**
+- Confirm where the live UI code lives: repository, path inside a monorepo, which app if there are several, and the branch or deployed commit. If the user has not said, or more than one candidate fits, ask. Do not guess from folder names.
+- Read the project's agent/contributor instructions, the PRD, and the affected UI and API client code.
+- Record what you find:
+  - Stack: framework and version, rendering mode (SPA, SSR, static), router, package manager and workspace layout.
+  - Data: API client or data layer (this is the mock seam), where session, auth and feature flags come from, and their response shapes.
+  - UI: design system or component library, tokens, styling approach, layout shell (navigation, home, entry routes).
+  - Conventions: folder structure, file and component naming, state management, lint/format/type rules.
+  - Commands: install, start, build, lint, test; the existing test runner, if any.
+- Ask the user about anything you cannot determine from code that changes the plan (for example which session or flag branch production uses, or where an undocumented API lives).
 
-- [PRD template](assets/prd-template.md) when drafting or repairing the product contract.
-- [Platform and mock guidance](references/platforms-and-mocks.md) for choosing the existing API seam and the web/native test harness.
-- [Evidence contract](references/evidence.md) for source parity, coverage adapters and handoff records.
-- [Contract example](assets/coverage-contract.example.json) and [result example](assets/scenario-results.example.json) for the coverage checker. They are synthetic examples, not evidence of a real run.
+**Produces** `ui-profile.md` with the findings above, the source location and the open questions. Keep it with the PRD; copy it into the prototype in step 3 and allowlist it as an addition.
 
-## 1. Fix the acceptance contract first
+**Gate** The user has confirmed the source location. The mock seam, entry route, session/flag source, start command and test runner are identified, or recorded as open questions. Later steps follow the conventions in this profile, not your defaults.
 
-Keep stable requirement, acceptance and screen IDs. Each acceptance row specifies:
+## 2. Acceptance contract
 
-- Given: fixture, actor/permissions, feature flags and starting state.
-- When: normal home, received notification or supported entry flow, followed by named UI actions.
-- Then: observable UI outcome and relevant resulting state or side effect.
-- Required screens and linked requirements.
+**Do**
+- Keep stable requirement (`FR-xx`), acceptance (`AC-xx`) and screen (`Sx`) IDs. Use the PRD template if the PRD lacks them.
+- Each AC states Given (fixture, actor, flags, starting state), When (entry route plus named UI actions), Then (visible outcome plus resulting state), and its required screens.
+- Include the feature's negative cases: validation, role boundaries, empty/error/retry, stale data, duplicates, concurrent changes. Mark unresolved domain rules as explicit unknowns.
+- Classify any discrepancy between PRD and existing UI as clarification, defect or new scope. Record the decision in the PRD; never edit an AC expectation to make the UI pass.
 
-Include the feature's meaningful negative cases: unavailable or stale information, validation, role boundaries, empty/error/retry states, duplicates, interrupted work and concurrent changes where relevant. Distinguish permission policy from selecting a demonstrated role. Define the backend behavior being simulated; unresolved domain rules remain explicit unknowns or blocked cases.
+**Produces** `<prototype>/coverage-contract.json` (`prd_id`, `entry_screens`, `screens`, `acceptance[]`) and the updated PRD.
 
-Do not change acceptance expectations merely to make the UI pass. Classify a discrepancy as a requirement clarification, implementation defect or new scope; reconcile it with the owning PRD and record the decision.
+**Gate** Every AC has an entry screen, required screens and an observable Then. Product owner has seen the contract or an open question is recorded.
 
-## 2. Fetch and copy a fresh application baseline for this PRD
+## 3. Fresh baseline snapshot
 
-Fetch the source repository's configured remote, determine the appropriate source commit, and copy the UI source, assets, shared packages, lockfiles and build configuration needed to run it into an isolated PRD prototype. Do not modify the source checkout or overwrite an earlier prototype. Never substitute an earlier PRD's fake app for a fresh source copy.
+**Do**
+- Pin the source commit (deployed commit if known, otherwise the requested ref; state the difference). Fetch first.
+- Copy the UI source, shared packages, lockfiles and build config identified in `ui-profile.md` into an isolated prototype directory:
+  ```bash
+  python3 scripts/snapshot.py create --repo /path/to/app --remote origin --fetch --ref origin/main \
+    --path frontend --destination /path/to/prototypes/PRD-007
+  ```
+  The copy is the default because prototypes often live outside the product repo, and a pinned copy with a hash manifest is reviewable and cannot silently mutate the source. If the prototype stays inside the product repo, a `git worktree add` at the pinned commit is acceptable; then review `git diff <commit> --name-status` against the same allowlist rules in step 6.
+- Never reuse an earlier PRD's prototype as the baseline. Unreachable source is a recorded limitation, not fresh evidence.
 
-If the deployed commit is known, use it when reproducing the live baseline. If the user wants latest code or the deployment is unavailable, pin the selected source commit and state the difference. A successful source fetch is not proof of deployment. Offline or inaccessible source is a recorded limitation, not silently fresh evidence.
+**Produces** `<prototype>/` with `prototype-manifest.json` (commit, paths, file hashes, fetch status).
 
-The optional standard-library helper creates a committed-source snapshot without copying uncommitted files:
+**Gate** The app builds and starts from the snapshot. Home route, navigation and the real session/flag response render as in the source.
 
-```bash
-python3 scripts/snapshot.py create --repo /path/to/app --ref origin/main \
-  --remote origin --fetch --path frontend --destination /path/to/prototypes/PRD-007
-```
+## 4. Red baseline journeys
 
-Run scripts relative to this skill's directory or resolve their absolute paths; output paths belong to the target project. Select actual project paths and remote/ref; the example is not a prescribed framework layout. For monorepos, select required shared packages and workspace configuration too. For an explicitly requested working-tree baseline, preserve and identify its changes separately: this helper snapshots commits only.
+**Do**
+- Add the [Playwright adapter](adapters/playwright/README.md): tag each test with its AC id (`@AC-01`), assert screens with `expectScreen(...)`, and register the reporter that writes `scenario-results.json`. If the project already uses Cypress or another runner, write an adapter that emits the same schema; see [evidence.md](references/evidence.md).
+- One test per AC. Seed the fixture, start at the entry route, then act as the user would. A supported deep link (for example a notification URL) is fine; jumping to an internal route to skip the entry flow is not.
+- Run the suite with tracing on against the unchanged snapshot.
 
-Record commit, deployment evidence if available, platform, design/flag/session state and file hashes. Preserve navigation, home, background, typography, tokens and shared components unless the PRD/user explicitly changes them. If the feature changes these areas, record the intended delta and verify unaffected surfaces. Prototype controls live outside the product composition and are closed by default.
+**Produces** `<prototype>/baseline-evidence/`: copy `evidence/` there after this run, because the reporter wipes `evidence/` at the start of every run. Allowlist it as an addition.
 
-## 3. Write and run the failing UI journeys before feature changes
+**Gate** Each AC fails on its product assertion, or passes at baseline because the behaviour already exists (record which). Setup failures (server not started, missing dependency, selector typo) are not red evidence; fix them first.
 
-Use the project's real UI harness. Prefer one independently runnable scenario per AC ID; group additional journey coverage when needed. Seed data before interaction, then start where the user would start. A supported notification deep link is valid; jumping directly to an internal target to bypass the entry flow is not.
+## 5. UI plus stateful fake at the existing seam
 
-Record the initial assertion failure and its trace or equivalent native recording. Toolchain failures, missing credentials and a server that never started are setup blockers, not red acceptance evidence. Existing behavior that already satisfies an AC may pass at baseline; record that honestly instead of manufacturing a failure.
+**Do**
+- Keep the current router, components, styles and request client. Add the proposed feature inside the snapshot, following the folder, naming, component and styling conventions in `ui-profile.md`.
+- Replace the backend behind the existing fetch client, API route or proxy under an explicit prototype mode (see [web-mocks.md](references/web-mocks.md)). Match the real session and feature-flag response shapes so the shell picks the same navigation branch as production.
+- The fake holds state across navigation and reload, applies commands atomically, and enforces modeled actor/scope checks at its boundary. Model delayed, failed, conflicting and duplicate responses only where the PRD needs them.
+- Test-only seed/reset/role endpoints fail closed outside prototype mode. Prototype controls (scenario picker, role switch) live outside the product shell and are closed by default.
+- Reuse the existing design direction. New visual choices need a recorded decision.
 
-Trace asserted screen visits during execution. A screen declaration, route list or screenshot directory alone does not establish coverage. Record every scenario independently, including when its common helper is shared across test files.
+**Produces** feature code, fake backend module, `parity-allowlist.json` listing every changed or added path with a reason.
 
-## 4. Implement the proposed UI with a stateful fake at the existing seam
+**Gate** The feature works manually from the entry route in prototype mode. Flag-on and flag-off sessions both render the intended shell.
 
-Keep current routing, components, styles, request clients and native data repositories. Extend the in-snapshot app for the PRD's proposed feature. Reproduce the actual session/feature-flag contract so the intended navigation and permissions branch renders. Check relevant flag-on/off branches instead of assuming a default session is equivalent.
+## 6. Verify
 
-Use an explicit prototype/test mode to replace the backend behind its HTTP client, proxy, repository or service interface. Block accidental live mutations. Test-only seed, role and state controls must be absent or fail closed outside prototype mode. Do not port auth bypasses or mock control endpoints into production.
+**Do**
+- Run the full Playwright suite with the reporter and tracing against an isolated mock server (never a shared or unknown one). Include the project's lint, type checks and unit tests.
+- Check source parity:
+  ```bash
+  python3 scripts/snapshot.py verify --prototype /path/to/prototypes/PRD-007 \
+    --allowlist /path/to/prototypes/PRD-007/parity-allowlist.json
+  ```
+- Check coverage:
+  ```bash
+  python3 scripts/check_coverage.py --contract coverage-contract.json \
+    --results evidence/scenario-results.json --artifact-root /path/to/prototypes/PRD-007
+  ```
+- Open a few traces and screenshots yourself. The checker verifies records and files, not the truth of assertions.
 
-Use deterministic, synthetic fixtures and per-test/per-reviewer state isolation. State survives normal navigation and refresh for the demonstrated session. Apply transitions atomically in the fake; enforce modeled actor/scope checks at its command boundary as well as in the UI. Share domain transition definitions where practical, so button enablement and fake guards agree. Exercise idempotency and stale-version handling when the PRD calls for them.
+**Produces** `evidence/scenario-results.json`, traces and screenshots under `evidence/`, parity report, coverage report.
 
-A role picker changes test identity; it is not authentication evidence. Simulate delayed, failed, unknown and conflicting responses deliberately. Clearly identify fake external results. Implement only enough backend behavior to exercise the PRD, rather than inventing a production backend architecture.
+**Gate** Suite green, `snapshot.py verify` exit 0 with narrow allowlist entries, `check_coverage.py` exit 0.
 
-Provide a scenario picker or platform-appropriate developer control that seeds an AC's fixture and returns to its entry point. Fixture selection is not automated playback and does not record product approval. Reuse the selected design direction. New visual choices require a concrete review only if the user has not already authorized or selected them.
+## 7. Handoff
 
-## 5. Verify the whole in-scope flow and preserve parity
+**Do**
+- Report: PRD id and prototype version, source commit and deployment comparison, exact commands run, AC counts (passed/failed/skipped/missing), screens required vs visited, allowlisted changes, mocked domains and unknowns, links to evidence.
+- State the status honestly: **ready for product review**, **product review recorded** (actor, date, prototype_version), or **verified against the real backend**. Never promote one to the next without the matching evidence.
+- After review, hand the ACs, fixtures and API/state discoveries to the implementation RFC. Real delivery is proven by integration tests and a live run, not by this suite. Retire the fake when the real backend lands.
+- Optional: note elapsed time or model usage if measured; unknown is not zero.
 
-Run the acceptance suite with recording enabled and an isolated mock server/test runtime. Avoid reusing an unknown server. Include the feature's positive and negative journeys, required screens, and applicable responsive/native accessibility states. Adapt commands to the project instead of requiring a browser test for native UI.
+**Produces** handoff note in the PRD or alongside it, with the evidence directory linked.
 
-Verify source parity against the snapshot, listing specific prototype changes and additions with reasons:
+**Gate** The product owner can open the prototype and the evidence without asking you anything.
 
-```bash
-python3 scripts/snapshot.py verify --prototype /path/to/prototypes/PRD-007 \
-  --allowlist /path/to/prototypes/PRD-007/parity-allowlist.json
-```
+## Red flags, stop and report
 
-Do not allowlist the entire app or unexplained shell/style changes. Source hashes alone do not prove runtime parity: inspect the actual home/navigation, relevant flag branches, backgrounds and platform layout. Keep scenario controls out of ordinary feature screenshots.
-
-For web, keep editable, source-derived HTML designs in the PRD's assets and regenerate static PNGs from them; copy styles, fonts and images so the designs render without broken assets. Do not recreate the shell with custom CSS. For native UI, keep editable native component/view sources or the selected design artifact; an HTML approximation is not native evidence. Keep static design exports distinct from screenshots captured by a running application.
-
-Run appropriate project lint/type checks, unit tests and builds. Check critical assumptions early, run focused checks while iterating, then the complete PRD suite for handoff. Broaden regression checks when the change or project requires them; avoid repeating unrelated full suites without a new reason.
-
-Export actual test results to the evidence contract, then check them:
-
-```bash
-python3 scripts/check_coverage.py --contract /path/to/coverage-contract.json \
-  --results /path/to/scenario-results.json --artifact-root /path/to/prototype
-```
-
-Every AC needs one final passing result with its required screens actually visited and nonempty referenced recording/screenshots. Failed, skipped, missing or duplicate results do not count as complete. The checker validates records and artifact presence, not the truth of the assertions or the contents of a recording; inspect the underlying runner report. Never hand-author successful evidence to satisfy the checker.
-
-## 6. Deliver a reviewable result, then hand off implementation
-
-Report artifact links, source/deployment provenance, exact commands and outcomes, AC/screen coverage, runtime versus static evidence, mock limitations, unresolved decisions and next owner. Record elapsed/model usage when available; unavailable values are unknown, not zero.
-
-Distinguish **ready for product review**, **product review recorded**, and **verified against the real backend**. A green fake suite is ready for review. Record an authorized review against the specific prototype version; do not manufacture approval or ask again when existing authorization covers the artifact. If review is pending, deliver the concrete prototype and keep that gate open.
-
-After review, pass acceptance scenarios and data/state/API discoveries into the project's RFC or implementation process. Preserve acceptance meaning when replacing the fake with real services. Prove delivery using real integration/backend tests and a live local app run. Treat the fake as a prototype artifact, not a long-lived parallel implementation that quietly diverges during development.
+- Guessing where the live UI lives, or applying your own stack defaults instead of the project's conventions.
+- Editing an AC expectation so the test passes.
+- Deep-linking past the entry screen to reach the feature.
+- Allowlisting a whole directory, or any shell/style change without a reason.
+- Writing or editing `scenario-results.json` by hand.
+- Reusing one screenshot or trace for more than one AC.
+- Claiming "approved" without a recorded review for this `prototype_version`.
+- Calling the fake suite "done" or "production ready".

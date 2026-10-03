@@ -1,14 +1,14 @@
-# PRD-[ID] — [Feature]
+# PRD-[ID]: [Feature]
 
 Status: Draft / ready for prototype review / reviewed (record the actual state).
-Owner: [product owner]. Platform: [web/native/desktop]. Version/date: [version/date].
+Owner: [product owner]. Platform: web. Version/date: [version/date].
 Baseline: [source commit, starter if new app, deployment evidence or limitation].
 Design decision: [existing direction and any explicitly authorized changes].
 Dependencies: [existing features/API contracts].
 
 ## Problem and intended outcome
 
-[Who encounters what problem, normal entry point, observable successful outcome, scope exclusions.]
+[Who encounters what problem, normal entry route, observable successful outcome, scope exclusions.]
 
 ## Actors and permissions
 
@@ -28,18 +28,18 @@ Dependencies: [existing features/API contracts].
 
 ## Screens and entry flow
 
-| Screen | Existing / proposed route or native view | Entry action | States |
+| Screen | Existing / proposed route | Entry action | States |
 |---|---|---|---|
-| S1 | [normal home/notification entry] | [start] | [loading/empty/data] |
-| S2 | [feature] | [action from S1] | [editing/success/validation/retry] |
+| S1 | [normal home or notification entry route] | [start] | [loading/empty/data] |
+| S2 | [feature route] | [action from S1] | [editing/success/validation/retry] |
 
-Preserved shell: [navbar/sidebar/tabs, home, topbar, background/tokens, session/flag branches].
+Preserved shell: [navbar/sidebar, home, topbar, background/tokens, session/flag branches].
 Authorized deltas: [specific changes or none]. Prototype controls: [separate closed control].
 
 ## Data and mocked backend contract
 
-[Identifiers/versions, API or repository seam, deterministic fixtures, modeled guards, failure cases,
-side effects, isolation/reset and unknown domain rules. Do not prescribe a production architecture.]
+[Identifiers/versions, API seam (fetch client, API route or proxy), deterministic fixtures, modeled guards,
+failure cases, side effects, isolation/reset and unknown domain rules. Do not prescribe a production architecture.]
 
 ## Acceptance scenarios
 
@@ -47,12 +47,12 @@ side effects, isolation/reset and unknown domain rules. Do not prescribe a produ
 |---|---|---|---|---|
 | AC-01 | [fixture, actor and flag] | [home → exact action → save] | [visible outcome + stored state] | FR-01 / S1 S2 |
 
-[Add applicable permissions, missing/stale/empty/error/retry/concurrency and platform cases.
+[Add applicable permissions, missing/stale/empty/error/retry/concurrency and responsive cases.
 Keep IDs stable; derive expected results from product intent.]
 
 ## Design and verification evidence
 
-[Editable source assets, regenerated static exports, separate runtime screenshots/recordings,
+[Editable source assets, regenerated static images, separate runtime screenshots/traces,
 red-baseline results, green results, actual AC/screen coverage and source parity.]
 
 ## Rollout and implementation handoff
