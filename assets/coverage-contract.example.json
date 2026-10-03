@@ -1,0 +1,9 @@
+{
+  "prd_id": "PRD-001",
+  "entry_screens": ["S1"],
+  "screens": ["S1", "S2"],
+  "acceptance": [
+    {"id": "AC-01", "screens": ["S1", "S2"]},
+    {"id": "AC-02", "screens": ["S1", "S2"]}
+  ]
+}

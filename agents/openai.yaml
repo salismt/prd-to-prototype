@@ -1,0 +1,4 @@
+interface:
+  display_name: "PRD to Prototype"
+  short_description: "Turn PRDs into tested prototypes using existing UI"
+  default_prompt: "Use $prd-to-prototype to turn this PRD into an acceptance-tested UI prototype with a stateful mocked backend."
