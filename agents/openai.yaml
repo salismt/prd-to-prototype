@@ -1,4 +1,4 @@
 interface:
   display_name: "PRD to Prototype"
-  short_description: "Turn PRDs into tested prototypes using existing UI"
-  default_prompt: "Use $prd-to-prototype to turn this PRD into an acceptance-tested UI prototype with a stateful mocked backend."
+  short_description: "Turn a web PRD into a clickable, acceptance-tested prototype on a mock backend"
+  default_prompt: "Use $prd-to-prototype to turn this PRD into a clickable prototype of the existing web app with a stateful mock backend and Playwright acceptance evidence, before the backend is built."

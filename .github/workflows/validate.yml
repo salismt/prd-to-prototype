@@ -1,4 +1,4 @@
-name: Validate skill helpers
+name: Validate
 
 on:
   push:
@@ -19,3 +19,28 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m unittest discover -s tests -v
+
+  web-demo:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/web-demo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: examples/web-demo/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - run: npm run check
+      - if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: web-demo-evidence
+          path: |
+            examples/web-demo/evidence
+            examples/web-demo/test-results
+          if-no-files-found: ignore

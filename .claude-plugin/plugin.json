@@ -1,0 +1,14 @@
+{
+  "name": "prd-to-prototype",
+  "displayName": "PRD to Prototype",
+  "version": "1.1.0",
+  "description": "Turn a web PRD into a clickable prototype of the existing app with a stateful mock backend and Playwright acceptance evidence, before the backend is built.",
+  "author": {
+    "name": "salismt",
+    "url": "https://github.com/salismt"
+  },
+  "homepage": "https://github.com/salismt/prd-to-prototype",
+  "repository": "https://github.com/salismt/prd-to-prototype",
+  "license": "MIT",
+  "keywords": ["prd", "prototype", "playwright", "acceptance-tests", "mock-backend", "web"]
+}

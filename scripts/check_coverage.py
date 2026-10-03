@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Check actual PRD scenario records and referenced artifacts; not assertion truth."""
+"""Check actual PRD scenario records and artifact plausibility (type, freshness, reuse); not assertion truth."""
 import argparse
 from collections import Counter
+from datetime import datetime
 import json
 from pathlib import Path
-import re
 import sys
+
+SIGNATURES = {".zip": b"PK\x03\x04", ".webm": b"\x1a\x45\xdf\xa3", ".png": b"\x89PNG\r\n\x1a\n", ".jpg": b"\xff\xd8\xff", ".jpeg": b"\xff\xd8\xff"}
+RECORDING, SCREENSHOT = {".zip", ".webm"}, {".png", ".jpg", ".jpeg"}
+TOLERANCE = 2  # seconds of mtime slack against run_started_at
 
 
 def strings(value, label, nonempty=True):
@@ -21,6 +25,17 @@ def required_string(obj, key):
     return value
 
 
+def run_start(evidence):
+    value = required_string(evidence, "run_started_at")
+    try:
+        started = datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+    except ValueError:
+        raise ValueError("run_started_at must be an ISO-8601 timestamp")
+    if started.tzinfo is None:
+        raise ValueError("run_started_at must include a timezone")
+    return started.timestamp()
+
+
 def check(contract, evidence, root):
     if not isinstance(contract, dict) or not isinstance(evidence, dict):
         raise ValueError("Contract and results must be objects")
@@ -28,6 +43,11 @@ def check(contract, evidence, root):
     if required_string(evidence, "prd_id") != prd:
         raise ValueError("PRD identifiers do not match")
     version = required_string(evidence, "prototype_version")
+    started = run_start(evidence)
+    runner = evidence.get("runner")
+    if not isinstance(runner, dict):
+        raise ValueError("runner must be an object with name and version")
+    runner = {"name": required_string(runner, "name"), "version": required_string(runner, "version")}
     screens = set(strings(contract.get("screens"), "screens"))
     entries = set(strings(contract.get("entry_screens"), "entry_screens"))
     if not entries <= screens:
@@ -40,52 +60,70 @@ def check(contract, evidence, root):
         if not isinstance(row, dict):
             raise ValueError("Acceptance rows must be objects")
         ident = required_string(row, "id")
-        if not re.fullmatch(r"AC-\d{2,}", ident) or ident in expected:
-            raise ValueError("Invalid or duplicate AC identifier: " + ident)
+        if ident in expected:
+            raise ValueError("Duplicate AC identifier: " + ident)
         required = set(strings(row.get("screens"), ident + " screens"))
         if not required <= screens:
             raise ValueError("Undeclared screen in " + ident)
         expected[ident] = required
-    ids = []
-    for r in results:
-        if not isinstance(r, dict):
-            raise ValueError("Result rows must be objects")
-        ids.append(required_string(r, "id"))
+    failures, ids = [], []
+    for i, r in enumerate(results):
+        try:
+            ids.append(required_string(r if isinstance(r, dict) else {}, "id"))
+        except ValueError as e:
+            failures.append("results[%d]: %s" % (i, e))
     duplicates = sorted(k for k, n in Counter(ids).items() if n > 1)
     unknown = sorted(set(ids) - set(expected))
     missing = sorted(set(expected) - set(ids))
-    failures, passed, visited = [], [], set()
+    users, ok = {}, {}
 
-    def artifact(value, ident):
+    def artifact(value, ident, kinds, label):
         if not isinstance(value, str) or not value.strip() or Path(value).is_absolute() or ".." in Path(value).parts:
             failures.append(ident + ": invalid artifact path")
             return
         p = (root / value).resolve()
         if not p.is_relative_to(root) or not p.is_file() or p.stat().st_size == 0:
             failures.append(ident + ": missing, empty or out-of-root artifact: " + value)
+            return
+        ext = p.suffix.lower()
+        with p.open("rb") as f:
+            head = f.read(8)
+        if ext not in kinds:
+            failures.append(ident + ": " + label + " must be one of " + ", ".join(sorted(kinds)) + ": " + value)
+        elif not head.startswith(SIGNATURES[ext]):
+            failures.append(ident + ": artifact content does not match its extension: " + value)
+        if p.stat().st_mtime < started - TOLERANCE:
+            failures.append(ident + ": artifact predates this run: " + value)
+        users.setdefault(str(p), []).append(ident)
 
     for r in results:
-        ident = r["id"]
+        ident = r.get("id") if isinstance(r, dict) else None
         if ident not in expected or ident in duplicates:
             continue
         before = len(failures)
-        if r.get("status") != "passed":
-            failures.append(ident + ": final result is " + str(r.get("status", "missing")))
-            continue
-        actual = set(strings(r.get("visited_screens"), ident + " visited_screens"))
-        entry = required_string(r, "entry_screen")
-        if entry not in entries or entry not in actual:
-            failures.append(ident + ": did not start at a declared user entry")
-        if not actual <= screens:
-            failures.append(ident + ": undeclared visited screen")
-        if not expected[ident] <= actual:
-            failures.append(ident + ": required screens not visited: " + ", ".join(sorted(expected[ident] - actual)))
-        artifact(r.get("recording"), ident)
-        for p in strings(r.get("screenshots"), ident + " screenshots"):
-            artifact(p, ident)
+        try:
+            if r.get("status") != "passed":
+                raise ValueError("final result is " + str(r.get("status", "missing")))
+            actual = set(strings(r.get("visited_screens"), "visited_screens"))
+            entry = required_string(r, "entry_screen")
+            if entry not in entries or entry not in actual:
+                failures.append(ident + ": did not start at a declared user entry")
+            if not actual <= screens:
+                failures.append(ident + ": undeclared visited screen")
+            if not expected[ident] <= actual:
+                failures.append(ident + ": required screens not visited: " + ", ".join(sorted(expected[ident] - actual)))
+            artifact(r.get("recording"), ident, RECORDING, "recording")
+            for p in strings(r.get("screenshots"), "screenshots"):
+                artifact(p, ident, SCREENSHOT, "screenshot")
+        except ValueError as e:
+            failures.append(ident + ": " + str(e))
         if len(failures) == before:
-            passed.append(ident)
-            visited.update(actual)
+            ok[ident] = actual
+    for path, idents in sorted(users.items()):
+        if len(idents) > 1:
+            for ident in idents:
+                failures.append(ident + ": artifact shared with " + ", ".join(sorted(set(idents) - {ident})) + ": " + str(Path(path).relative_to(root)))
+                ok.pop(ident, None)
     review = evidence.get("review", {"status": "pending"})
     if not isinstance(review, dict) or review.get("status") not in {"pending", "approved", "changes-requested"}:
         raise ValueError("Invalid review record")
@@ -94,8 +132,10 @@ def check(contract, evidence, root):
         required_string(review, "evidence")
         if review.get("prototype_version") != version:
             raise ValueError("Review approval references a different prototype version")
+    visited = set().union(*ok.values()) if ok else set()
     unvisited = sorted(screens - visited)
-    return {"prd_id": prd, "prototype_version": version, "acceptance_total": len(expected), "passed_ids": sorted(passed),
+    return {"prd_id": prd, "prototype_version": version, "run_started_at": evidence["run_started_at"], "runner": runner,
+            "acceptance_total": len(expected), "passed_ids": sorted(ok),
             "missing_ids": missing, "duplicate_ids": duplicates, "unknown_ids": unknown,
             "screen_total": len(screens), "visited_screens": sorted(visited), "unvisited_screens": unvisited,
             "failures": failures, "review_status": review["status"],

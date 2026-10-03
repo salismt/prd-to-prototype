@@ -1,0 +1,23 @@
+{
+  "name": "salismt",
+  "description": "Plugins by salismt. Currently: prd-to-prototype (acceptance-tested web prototypes on the existing app with a stateful mock backend).",
+  "owner": {
+    "name": "salismt",
+    "url": "https://github.com/salismt"
+  },
+  "plugins": [
+    {
+      "name": "prd-to-prototype",
+      "source": "./",
+      "description": "Turn a web PRD into a clickable prototype of the existing app with a stateful mock backend and Playwright acceptance evidence.",
+      "category": "development",
+      "tags": [
+        "prd",
+        "prototype",
+        "playwright",
+        "acceptance-tests",
+        "mock-backend"
+      ]
+    }
+  ]
+}

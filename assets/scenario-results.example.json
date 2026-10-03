@@ -1,6 +1,8 @@
 {
   "prd_id": "PRD-001",
   "prototype_version": "example-only-not-a-real-run",
+  "run_started_at": "2026-01-01T00:00:00Z",
+  "runner": {"name": "playwright", "version": "example-only"},
   "results": [
     {"id": "AC-01", "status": "passed", "entry_screen": "S1", "visited_screens": ["S1", "S2"], "recording": "evidence/AC-01.trace.zip", "screenshots": ["evidence/AC-01-S2.runtime.png"]},
     {"id": "AC-02", "status": "passed", "entry_screen": "S1", "visited_screens": ["S1", "S2"], "recording": "evidence/AC-02.trace.zip", "screenshots": ["evidence/AC-02-S2.runtime.png"]}
