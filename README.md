@@ -2,9 +2,11 @@
 
 An agent skill that turns a web PRD into a clickable prototype of your existing app, running on a stateful mock backend, with Playwright acceptance tests as the evidence. Product owners click through the real UI before anyone builds the backend.
 
-It exists because of two failures that kept recurring: a mocked session silently selected the wrong navigation branch while every feature assertion passed, and hand-built design mockups drifted from the app that would actually ship. The skill makes the agent start from a pinned copy of the real app, replace only the backend, start every journey at the normal entry route, and prove each acceptance case with recorded screens and traces that a script checks.
+![A PRD with 20 acceptance criteria across 7 screens. snapshot.py copies the real app's UI at a pinned commit (669 files). Each acceptance criterion becomes a Playwright journey that starts at the real first screen. Before the change, 20 of 20 journeys fail. After the prototype is built on a fake backend, 20 of 20 pass, each with a screenshot and a trace, and check_coverage.py exits 0.](docs/hero.gif)
 
-<!-- TODO: demo GIF -->
+<sub>Counts from one real PRD run on a production Next.js app. Commands shortened.</sub>
+
+It exists because of two failures that kept recurring: a mocked session silently selected the wrong navigation branch while every feature assertion passed, and hand-built design mockups drifted from the app that would actually ship. The skill makes the agent start from a pinned copy of the real app, replace only the backend, start every journey at the normal entry route, and prove each acceptance case with recorded screens and traces that a script checks.
 
 Scope: web apps and websites. Native mobile and desktop are phase 2 (see Roadmap).
 
