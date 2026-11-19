@@ -118,6 +118,24 @@ workspace/
 
 Keep the two kinds of picture apart: images under `assets/` are static designs, and screenshots under `prototypes/PRD-007/evidence/` were recorded from a passing run.
 
+## Using it in your SDLC
+
+One real PRD, followed from product to merged code. Trees are trimmed; counts come from the files.
+
+**1. Product owns the PRD and the designs.** The acceptance cases are fixed here, before any code. The skill reads them; it does not write them.
+
+![Tree of company/product/prds: PRD-005 with FR-01..29, AC-01..33 and 7 screens; assets/prd-005 with 22 HTML screen-state renders as the design source, 21 exported PNGs, and the index.html gallery the product owner approves.](docs/sdlc-1.png)
+
+**2. The skill builds the prototype.** It copies the real UI, records which cases fail before the change, builds the feature on a fake backend, and records the passing run. The product owner reviews the running prototype and the evidence, not a mockup.
+
+![Tree of prototypes/prd-005: ui-profile.md, coverage-contract.json with 33 acceptance cases, frontend as a 604-file copy of the real app pinned at commit 7edb4a1, parity-allowlist.json, baseline-evidence with 13 red and 20 already built, evidence with a screenshot and trace per AC and 33 of 33 green, and HANDOFF.md.](docs/sdlc-2.png)
+
+**3. Engineering builds the real thing from the handoff.** The RFC uses the prototype's fake as the API contract. The same acceptance journeys move into the product repo and run against the real backend; any place where the real backend differed goes in a gap log, not into a weaker assertion.
+
+![Tree of the product repo: docs/rfcs/RFC-006 with the prototype fake as API contract; frontend/tests/scenarios/PRD-005 with AC-01..AC-33 spec files ported in 4 slices with none weakened, and GAPS.md; git log shows the last slice merged as PR 181.](docs/sdlc-3.png)
+
+The fake is retired when the real backend lands. "Delivered" means the suite in step 3 passes against the real backend, not that the prototype suite in step 2 passed.
+
 ## See it work
 
 [`examples/web-demo/`](examples/web-demo/) is a small app with a PRD, a stateful fake, four acceptance tests using the Playwright adapter, and a coverage contract. Its README has the run commands; the short version:
