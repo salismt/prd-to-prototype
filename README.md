@@ -62,6 +62,80 @@ Build an isolated prototype with a stateful fake and Playwright acceptance evide
 
 Give it the PRD, the source repo and the scope. If you leave out where the UI lives, or the repo has several candidate apps, it asks before doing anything. It then profiles the stack and conventions, fixes the acceptance contract first, snapshots the app, writes red journeys, builds the feature on a fake, verifies, and hands off with evidence. The steps and their gates are in [SKILL.md](SKILL.md).
 
+## What a run produces
+
+One folder per PRD, next to your PRDs or anywhere outside the product repo. This is the layout after all six steps, taken from a real run (file names inside the app are illustrative):
+
+```text
+prototypes/PRD-007/
+├── ui-profile.md               # step 1: stack, mock seam, entry route, conventions, open questions
+├── coverage-contract.json      # step 2: prd_id, entry_screens, screens, acceptance[]
+├── prototype-manifest.json     # step 3: pinned commit, copied paths, per-file hashes, fetch status
+├── frontend/                   # step 3: pinned copy of the real app, same repo-relative layout
+│   ├── src/
+│   │   ├── components/profile/          # step 5: new feature UI, in the app's own conventions
+│   │   └── app/api/[...path]/fake/      # step 5: stateful fake behind the existing API seam
+│   ├── tests/
+│   │   ├── prd-adapter/                 # step 4: screens.ts + prd-reporter.ts (Playwright adapter)
+│   │   └── scenarios/PRD-007/           # step 4: one journey per AC, tagged @AC-01, @AC-02, ...
+│   └── playwright.prd007.config.ts
+├── baseline-evidence/          # step 4: red run against the unchanged snapshot
+├── parity-allowlist.json       # step 5: every changed or added path, each with a reason
+├── evidence/                   # step 6: written by the reporter, wiped at the start of every run
+│   ├── AC-01/
+│   │   ├── AC-01-S1.png        # one screenshot per screen, recorded only after its assertion passes
+│   │   ├── AC-01-S2.png
+│   │   └── trace.zip
+│   ├── AC-02/ ...
+│   ├── scenario-results.json   # one row per AC, from the actual run
+│   └── coverage.json           # check_coverage.py --output
+└── HANDOFF.md                  # step 7: commit, commands, AC counts, screens, mocks, status
+```
+
+Every path the prototype adds or changes relative to the snapshot must appear in `parity-allowlist.json`, or `snapshot.py verify` fails. Where the fake plugs in depends on your stack; see [web-mocks.md](references/web-mocks.md).
+
+### Where it sits in your workspace
+
+The skill writes only the `prototypes/PRD-007/` folder. In a real team workspace it sits beside the PRD, the design files and the audits that your own design process keeps. The skill reads those files and links to them from the handoff, but does not create them:
+
+```text
+workspace/
+├── product/                          # your product docs (not created by the skill)
+│   ├── prds/
+│   │   ├── PRD-007-profile.md        # input: FR/AC/screen ids; handoff note added in step 7
+│   │   └── assets/PRD-007/
+│   │       ├── html/                 # one HTML render per screen state, the design source
+│   │       │   ├── S1-home.html
+│   │       │   └── S2-edit-name.html
+│   │       ├── png/                  # PNGs exported from that HTML
+│   │       └── index.html            # gallery the product owner reviews
+│   └── audits/
+│       └── 2026-11-01-profile/       # design or UX audit: audit.md, audit.html, screenshots
+├── app/                              # the product repo; snapshotted, never edited
+└── prototypes/
+    └── PRD-007/                      # everything the skill writes (tree above)
+```
+
+Keep the two kinds of picture apart: images under `assets/` are static designs, and screenshots under `prototypes/PRD-007/evidence/` were recorded from a passing run.
+
+## Using it in your SDLC
+
+One real PRD, followed from product to merged code. Trees are trimmed; counts come from the files.
+
+**1. Product owns the PRD and the designs.** The acceptance cases are fixed here, before any code. The skill reads them; it does not write them.
+
+![Tree of company/product/prds: PRD-005 with FR-01..29, AC-01..33 and 7 screens; assets/prd-005 with 22 HTML screen-state renders as the design source, 21 exported PNGs, and the index.html gallery the product owner approves.](docs/sdlc-1.png)
+
+**2. The skill builds the prototype.** It copies the real UI, records which cases fail before the change, builds the feature on a fake backend, and records the passing run. The product owner reviews the running prototype and the evidence, not a mockup.
+
+![Tree of prototypes/prd-005: ui-profile.md, coverage-contract.json with 33 acceptance cases, frontend as a 604-file copy of the real app pinned at commit 7edb4a1, parity-allowlist.json, baseline-evidence with 13 red and 20 already built, evidence with a screenshot and trace per AC and 33 of 33 green, and HANDOFF.md.](docs/sdlc-2.png)
+
+**3. Engineering builds the real thing from the handoff.** The RFC uses the prototype's fake as the API contract. The same acceptance journeys move into the product repo and run against the real backend; any place where the real backend differed goes in a gap log, not into a weaker assertion.
+
+![Tree of the product repo: docs/rfcs/RFC-006 with the prototype fake as API contract; frontend/tests/scenarios/PRD-005 with AC-01..AC-33 spec files ported in 4 slices with none weakened, and GAPS.md; git log shows the last slice merged as PR 181.](docs/sdlc-3.png)
+
+The fake is retired when the real backend lands. "Delivered" means the suite in step 3 passes against the real backend, not that the prototype suite in step 2 passed.
+
 ## See it work
 
 [`examples/web-demo/`](examples/web-demo/) is a small app with a PRD, a stateful fake, four acceptance tests using the Playwright adapter, and a coverage contract. Its README has the run commands; the short version:
@@ -73,6 +147,8 @@ npx playwright install chromium   # add --with-deps on a bare Linux box
 npm test                          # Playwright suite with the PRD reporter
 npm run check                     # scripts/check_coverage.py against coverage-contract.json
 ```
+
+![Terminal: npm test passes all 4 acceptance journeys, npm run check reports coverage_passed true and exits 0, and tree evidence shows one folder per AC with a screenshot per screen and a trace, plus scenario-results.json.](docs/terminal-run.png)
 
 Break any assertion in the spec and `npm run check` exits 1.
 
