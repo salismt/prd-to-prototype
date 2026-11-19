@@ -94,6 +94,30 @@ prototypes/PRD-007/
 
 Every path the prototype adds or changes relative to the snapshot must appear in `parity-allowlist.json`, or `snapshot.py verify` fails. Where the fake plugs in depends on your stack; see [web-mocks.md](references/web-mocks.md).
 
+### Where it sits in your workspace
+
+The skill writes only the `prototypes/PRD-007/` folder. In a real team workspace it sits beside the PRD, the design files and the audits that your own design process keeps. The skill reads those files and links to them from the handoff, but does not create them:
+
+```text
+workspace/
+├── product/                          # your product docs (not created by the skill)
+│   ├── prds/
+│   │   ├── PRD-007-profile.md        # input: FR/AC/screen ids; handoff note added in step 7
+│   │   └── assets/PRD-007/
+│   │       ├── html/                 # one HTML render per screen state, the design source
+│   │       │   ├── S1-home.html
+│   │       │   └── S2-edit-name.html
+│   │       ├── png/                  # PNGs exported from that HTML
+│   │       └── index.html            # gallery the product owner reviews
+│   └── audits/
+│       └── 2026-11-01-profile/       # design or UX audit: audit.md, audit.html, screenshots
+├── app/                              # the product repo; snapshotted, never edited
+└── prototypes/
+    └── PRD-007/                      # everything the skill writes (tree above)
+```
+
+Keep the two kinds of picture apart: images under `assets/` are static designs, and screenshots under `prototypes/PRD-007/evidence/` were recorded from a passing run.
+
 ## See it work
 
 [`examples/web-demo/`](examples/web-demo/) is a small app with a PRD, a stateful fake, four acceptance tests using the Playwright adapter, and a coverage contract. Its README has the run commands; the short version:
