@@ -62,6 +62,38 @@ Build an isolated prototype with a stateful fake and Playwright acceptance evide
 
 Give it the PRD, the source repo and the scope. If you leave out where the UI lives, or the repo has several candidate apps, it asks before doing anything. It then profiles the stack and conventions, fixes the acceptance contract first, snapshots the app, writes red journeys, builds the feature on a fake, verifies, and hands off with evidence. The steps and their gates are in [SKILL.md](SKILL.md).
 
+## What a run produces
+
+One folder per PRD, next to your PRDs or anywhere outside the product repo. This is the layout after all six steps, taken from a real run (file names inside the app are illustrative):
+
+```text
+prototypes/PRD-007/
+├── ui-profile.md               # step 1: stack, mock seam, entry route, conventions, open questions
+├── coverage-contract.json      # step 2: prd_id, entry_screens, screens, acceptance[]
+├── prototype-manifest.json     # step 3: pinned commit, copied paths, per-file hashes, fetch status
+├── frontend/                   # step 3: pinned copy of the real app, same repo-relative layout
+│   ├── src/
+│   │   ├── components/profile/          # step 5: new feature UI, in the app's own conventions
+│   │   └── app/api/[...path]/fake/      # step 5: stateful fake behind the existing API seam
+│   ├── tests/
+│   │   ├── prd-adapter/                 # step 4: screens.ts + prd-reporter.ts (Playwright adapter)
+│   │   └── scenarios/PRD-007/           # step 4: one journey per AC, tagged @AC-01, @AC-02, ...
+│   └── playwright.prd007.config.ts
+├── baseline-evidence/          # step 4: red run against the unchanged snapshot
+├── parity-allowlist.json       # step 5: every changed or added path, each with a reason
+├── evidence/                   # step 6: written by the reporter, wiped at the start of every run
+│   ├── AC-01/
+│   │   ├── AC-01-S1.png        # one screenshot per screen, recorded only after its assertion passes
+│   │   ├── AC-01-S2.png
+│   │   └── trace.zip
+│   ├── AC-02/ ...
+│   ├── scenario-results.json   # one row per AC, from the actual run
+│   └── coverage.json           # check_coverage.py --output
+└── HANDOFF.md                  # step 7: commit, commands, AC counts, screens, mocks, status
+```
+
+Every path the prototype adds or changes relative to the snapshot must appear in `parity-allowlist.json`, or `snapshot.py verify` fails. Where the fake plugs in depends on your stack; see [web-mocks.md](references/web-mocks.md).
+
 ## See it work
 
 [`examples/web-demo/`](examples/web-demo/) is a small app with a PRD, a stateful fake, four acceptance tests using the Playwright adapter, and a coverage contract. Its README has the run commands; the short version:
@@ -73,6 +105,8 @@ npx playwright install chromium   # add --with-deps on a bare Linux box
 npm test                          # Playwright suite with the PRD reporter
 npm run check                     # scripts/check_coverage.py against coverage-contract.json
 ```
+
+![Terminal: npm test passes all 4 acceptance journeys, npm run check reports coverage_passed true and exits 0, and tree evidence shows one folder per AC with a screenshot per screen and a trace, plus scenario-results.json.](docs/terminal-run.png)
 
 Break any assertion in the spec and `npm run check` exits 1.
 
